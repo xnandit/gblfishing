@@ -5,7 +5,7 @@ import 'dart:async';
 
 class MembersScreen extends StatelessWidget {
   // Static members list data for now, while backend is being developed
-  final List<Map<String, String>> _members = [
+  final List<Map<String, String>> _members = const [
     {'name': 'Ken Pandjaitan', 'role': 'Ketua', 'alias': 'EL`DERTITAN'},
     {'name': 'Joel Pasaribu', 'role': 'Wakil Ketua', 'alias': 'EL`BREGI'},
     {

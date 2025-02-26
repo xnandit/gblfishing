@@ -7,7 +7,8 @@ import 'screens/documentation_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  // TODO: Uncomment this after adding google-services.json
+  // await Firebase.initializeApp();
   runApp(FishingApp());
 }
 
@@ -141,7 +142,7 @@ class _MainScreenState extends State<MainScreen>
 }
 
 class DashboardScreenContent extends StatelessWidget {
-  final List<Map<String, String>> _appointments = [
+  final List<Map<String, String>> _appointments = const [
     {
       'date': 'Sabtu, 23 November 2024',
       'agenda': 'Mancing di laut',
