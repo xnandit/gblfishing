@@ -1,19 +1,18 @@
-name: gbl_fishing_new
+name: gblfishing
 description: A new Flutter project.
-
 publish_to: 'none'
-
-version: 0.0.1
+version: 1.0.0+1
 
 environment:
-  sdk: ^3.1.1
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.2
-  firebase_core: ^2.24.2
-  firebase_storage: ^11.6.0
+  http: ^1.1.0
+  provider: ^6.0.5
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
@@ -23,6 +22,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/icon/
     - assets/icon/background2.jpg
     - assets/icon/background3.jpg
     - assets/icon/background4.jpg

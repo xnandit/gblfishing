@@ -1,15 +1,21 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 import 'screens/leaderboard_screen.dart';
 import 'screens/members_screen.dart';
 import 'screens/documentation_screen.dart';
+import 'screens/update_score.dart';
+import 'screens/login_screen.dart';
+import 'providers/user_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // TODO: Uncomment this after adding google-services.json
-  // await Firebase.initializeApp();
-  runApp(FishingApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => UserProvider(),
+      child: const FishingApp(),
+    ),
+  );
 }
 
 class FishingApp extends StatelessWidget {
@@ -22,7 +28,34 @@ class FishingApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: MainScreen(),
+      initialRoute: '/login',
+      routes: {
+        '/login': (context) => const LoginScreen(),
+        '/home': (context) => const MainScreen(),
+      },
+      builder: (context, child) {
+        return PopScope(
+          canPop: false,
+          onPopInvoked: (bool didPop) async {
+            if (didPop) return;
+            
+            final currentRoute = ModalRoute.of(context);
+            if (currentRoute != null && currentRoute.settings.name == '/login') {
+              return;
+            }
+            
+            // If we're not on login screen, logout
+            await context.read<UserProvider>().logout();
+            if (context.mounted) {
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                '/login',
+                (Route<dynamic> route) => false,
+              );
+            }
+          },
+          child: child!,
+        );
+      },
     );
   }
 }
@@ -37,22 +70,27 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen>
     with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
-
-  static final List<Widget> _pages = <Widget>[
-    DashboardScreenContent(),
-    LeaderboardScreen(),
-    MembersScreen(),
-    DocumentationScreen(),
-  ];
-
   late AnimationController _controller;
   late Animation<double> _animation;
+
+  List<Widget> _getPages(BuildContext context) {
+    final bool isAdmin = context.watch<UserProvider>().isAdmin;
+    return <Widget>[
+      const DashboardScreenContent(),
+      const LeaderboardScreen(),
+      if (isAdmin) const UpdateScoreScreen(),
+      const MembersScreen(),
+      const DocumentationScreen(),
+    ];
+  }
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 500));
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
     _animation = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
     _controller.forward();
   }
@@ -73,9 +111,62 @@ class _MainScreenState extends State<MainScreen>
 
   @override
   Widget build(BuildContext context) {
+    final bool isAdmin = context.watch<UserProvider>().isAdmin;
+    final pages = _getPages(context);
+    
+    // Adjust selected index if needed when admin status changes
+    if (!isAdmin && _selectedIndex >= pages.length) {
+      _selectedIndex = 0;
+    }
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('GBLFishingMania'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              // Show loading indicator
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (BuildContext context) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                },
+              );
+              
+              try {
+                await context.read<UserProvider>().logout();
+                
+                if (context.mounted) {
+                  // Close loading indicator
+                  Navigator.of(context).pop();
+                  
+                  // Navigate to login
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    '/login',
+                    (Route<dynamic> route) => false,
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  // Close loading indicator
+                  Navigator.of(context).pop();
+                  
+                  // Show error
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Error during logout. Please try again.'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+        ],
       ),
       body: Stack(
         children: [
@@ -89,7 +180,7 @@ class _MainScreenState extends State<MainScreen>
           ),
           FadeTransition(
             opacity: _animation,
-            child: _pages[_selectedIndex],
+            child: pages[_selectedIndex],
           ),
         ],
       ),
@@ -110,20 +201,25 @@ class _MainScreenState extends State<MainScreen>
           ),
         ),
         child: BottomNavigationBar(
-          items: const <BottomNavigationBarItem>[
-            BottomNavigationBarItem(
+          items: <BottomNavigationBarItem>[
+            const BottomNavigationBarItem(
               icon: Icon(Icons.home, size: 30),
               label: 'Home',
             ),
-            BottomNavigationBarItem(
+            const BottomNavigationBarItem(
               icon: Icon(Icons.leaderboard, size: 30),
               label: 'Leaderboard',
             ),
-            BottomNavigationBarItem(
+            if (isAdmin)
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.add_circle, size: 40),
+                label: 'Update',
+              ),
+            const BottomNavigationBarItem(
               icon: Icon(Icons.people, size: 30),
               label: 'Members',
             ),
-            BottomNavigationBarItem(
+            const BottomNavigationBarItem(
               icon: Icon(Icons.photo_library, size: 30),
               label: 'Documentation',
             ),
@@ -163,7 +259,10 @@ class DashboardScreenContent extends StatelessWidget {
           const Text(
             'Jadwal Kegiatan Memancing Berikutnya',
             style: TextStyle(
-                fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
@@ -190,20 +289,11 @@ class DashboardScreenContent extends StatelessWidget {
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 5),
                         Text('Agenda: ${appointment['agenda']}'),
-                        Text('Lokasi: ${appointment['location']}'),
-                        Text('Berlaku Untuk: ${appointment['for']}'),
+                        Text('Location: ${appointment['location']}'),
+                        Text('For: ${appointment['for']}'),
                       ],
                     ),
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                              'Viewed details for ${appointment['agenda']}'),
-                        ),
-                      );
-                    },
                   ),
                 );
               },
